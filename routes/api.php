@@ -19,7 +19,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return $request->user();
     });
 
-    Route::patch('/profile', [UserController::class, 'updateProfile']);
+    Route::match(['put', 'patch'], '/profile', [UserController::class, 'updateProfile']);
+    Route::match(['put', 'patch'], '/profile/password', [UserController::class, 'updatePassword']);
 
     Route::get('/tasks', [TaskController::class, 'index']);
     Route::post('/tasks', [TaskController::class, 'store']);
@@ -29,6 +30,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::post('/projects', [ProjectController::class, 'store']);
+    Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);
 
     // Project invitations
     Route::post('/projects/{project}/invite', [ProjectInvitationController::class, 'invite']);
@@ -40,6 +42,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/users', [UserController::class, 'index']);
     Route::post('/users', [UserController::class, 'store']);
     Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
+    Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
     Route::post('/logout', function (Request $request) {
         $request->user()->currentAccessToken()?->delete();

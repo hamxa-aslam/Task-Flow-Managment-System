@@ -59,6 +59,18 @@ return [
     | Frontend URL
     |--------------------------------------------------------------------------
     |
+    | The React SPA entry point. Used when the backend needs to send users
+    | to a frontend page (login, register, dashboard) after an action.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
     | This URL is used by API routes that redirect back to the SPA after
     | actions such as email verification. Notifications may also link here.
     |

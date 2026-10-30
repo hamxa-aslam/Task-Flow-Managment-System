@@ -32,8 +32,10 @@ class ProjectInvitationMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
-        $acceptUrl = $frontendUrl . '/invitations/accept?token=' . $this->invitation->token;
+        // The accept endpoint is a backend (web) route, so the link must
+        // point at the Laravel host, not the React SPA. The controller
+        // then forwards the user to the SPA's login or register page.
+        $acceptUrl = rtrim((string) config('app.url'), '/') . '/invitations/accept?token=' . $this->invitation->token;
 
         return new Content(
             view: 'emails.project-invitation',

@@ -27,7 +27,14 @@ function ProjectSkeleton() {
   );
 }
 
-export default function ProjectsView({ projects, loading, role, onProjectCreated }) {
+export default function ProjectsView({
+  projects,
+  loading,
+  role,
+  onProjectCreated,
+  onDeleteProject,
+  deletingProjectId,
+}) {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -228,10 +235,13 @@ export default function ProjectsView({ projects, loading, role, onProjectCreated
             const completedCount = project.completed_tasks_count ?? 0;
             const completion = taskCount ? Math.round((completedCount / taskCount) * 100) : 0;
             const status = statusLabels[project.status] ? project.status : 'pending';
+            const isDeleting = deletingProjectId === project.id;
 
             return (
               <article
-                className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                className={`group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md ${
+                  isDeleting ? 'pointer-events-none opacity-60' : ''
+                }`}
                 key={project.id}
               >
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-60" />
@@ -240,11 +250,29 @@ export default function ProjectsView({ projects, loading, role, onProjectCreated
                   <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-inset ring-indigo-100 transition-transform duration-200 group-hover:scale-105">
                     <Icon name="briefcase" className="h-[18px] w-[18px]" />
                   </div>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 ring-inset ${statusStyles[status]}`}
-                  >
-                    {statusLabels[status]}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 ring-inset ${statusStyles[status]}`}
+                    >
+                      {statusLabels[status]}
+                    </span>
+                    {canCreate && onDeleteProject && (
+                      <button
+                        aria-label={`Delete ${project.name}`}
+                        className="grid h-7 w-7 place-items-center rounded-md text-slate-400 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 active:scale-90"
+                        disabled={isDeleting}
+                        onClick={() => onDeleteProject(project)}
+                        title={`Delete ${project.name}`}
+                        type="button"
+                      >
+                        {isDeleting ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600" />
+                        ) : (
+                          <Icon name="trash" className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <h3 className="mt-5 truncate text-[15px] font-semibold tracking-tight text-slate-900">{project.name}</h3>

@@ -3,11 +3,10 @@ import api from './api';
 import Icon from './components/Icons';
 
 export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }) {
+  const invitedEmail = new URLSearchParams(window.location.search).get('email') || '';
   const [name, setName] = useState('');
-  const [email, setEmail] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('email') || '';
-  });
+  const [email, setEmail] = useState(invitedEmail);
+  const emailLocked = invitedEmail !== '';
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [error, setError] = useState('');
@@ -82,11 +81,15 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }) {
                 <div className="relative">
                   <Icon name="mail" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" strokeWidth={1.8} />
                   <input
+                    className={`w-full rounded-lg border bg-white py-2.5 pl-10 pr-3.5 text-sm text-slate-900 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 ${
+                      emailLocked ? 'cursor-not-allowed border-slate-200/80 bg-slate-50 text-slate-500' : 'border-slate-200/80'
+                    }`}
                     id="email"
-                    className="w-full rounded-lg border border-slate-200/80 bg-white py-2.5 pl-10 pr-3.5 text-sm text-slate-900 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10"
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.com"
+                    readOnly={emailLocked}
                     required
+                    title={emailLocked ? 'This invitation is locked to the invited email address' : undefined}
                     type="email"
                     value={email}
                   />

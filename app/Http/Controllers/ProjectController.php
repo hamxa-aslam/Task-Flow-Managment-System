@@ -91,4 +91,23 @@ class ProjectController extends Controller
             'data' => $project,
         ], 201);
     }
+
+    /**
+     * Delete a project. Tasks, invitations and memberships are removed
+     * by the database cascade defined on their foreign keys.
+     */
+    public function destroy(Request $request, Project $project)
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user->isAdmin() || ($user->isManager() && $project->workspace?->user_id === $user->id),
+            403,
+            'You are not allowed to delete this project.'
+        );
+
+        $project->delete();
+
+        return response()->json(['message' => 'Project deleted successfully.']);
+    }
 }

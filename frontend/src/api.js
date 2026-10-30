@@ -22,6 +22,11 @@ api.interceptors.request.use((config) => {
 export const projectsApi = {
   list: () => api.get('/projects'),
   create: (payload) => api.post('/projects', payload),
+  remove: (projectId) => api.delete(`/projects/${projectId}`),
+};
+
+export const usersApi = {
+  remove: (userId) => api.delete(`/users/${userId}`),
 };
 
 export const invitationsApi = {

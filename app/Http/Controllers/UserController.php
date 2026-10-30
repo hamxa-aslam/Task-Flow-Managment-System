@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules;
 
 class UserController extends Controller
 {
@@ -85,21 +87,56 @@ class UserController extends Controller
     }
 
     /**
-     * Update the authenticated user's profile details.
+     * Update the authenticated user's profile details (name and/or email).
      */
     public function updateProfile(Request $request)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'nullable',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($request->user()->id),
+            ],
         ]);
 
         $user = $request->user();
-        $user->update(['name' => trim($data['name'])]);
+        $user->update(array_filter([
+            'name' => trim($data['name']),
+            'email' => $data['email'] ?? null,
+        ]));
 
         return response()->json([
             'message' => 'Profile updated successfully.',
             'data' => $user->fresh(),
         ]);
+    }
+
+    /**
+     * Change the authenticated user's password after verifying the current one.
+     */
+    public function updatePassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            return response()->json([
+                'message' => 'The current password is incorrect.',
+                'errors' => ['current_password' => ['The current password is incorrect.']],
+            ], 422);
+        }
+
+        $user->update(['password' => Hash::make($data['password'])]);
+
+        return response()->json(['message' => 'Password updated successfully.']);
     }
 
     /**
@@ -129,6 +166,31 @@ class UserController extends Controller
             'message' => 'Role updated successfully.',
             'data' => $user,
         ]);
+    }
+
+    /**
+     * Delete a user. Admins cannot delete themselves; the database
+     * cascade removes their workspaces, memberships and invitations.
+     */
+    public function destroy(Request $request, User $user)
+    {
+        $this->ensureAdmin($request);
+
+        abort_if(
+            $user->is($request->user()),
+            422,
+            'You cannot delete your own account.'
+        );
+
+        try {
+            $user->delete();
+        } catch (\Throwable) {
+            // tasks.assigned_to is NOT NULL, so the FK blocks deletion
+            // while tasks are still assigned to this user.
+            abort(422, 'This user still has assigned tasks. Reassign or delete their tasks first.');
+        }
+
+        return response()->json(['message' => 'User deleted successfully.']);
     }
 
     private function ensureAdmin(Request $request): void

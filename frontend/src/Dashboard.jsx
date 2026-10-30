@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import api, { invitationsApi } from './api';
+import api, { invitationsApi, projectsApi, usersApi } from './api';
 import Header from './components/Header';
 import Icon from './components/Icons';
 import PageHeader from './components/PageHeader';
@@ -135,6 +135,7 @@ export default function Dashboard({ onLogout }) {
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [savingUser, setSavingUser] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [taskView, setTaskView] = useState('table');
@@ -486,6 +487,42 @@ export default function Dashboard({ onLogout }) {
     }
   };
 
+  const handleDeleteUser = async (member) => {
+    if (!isAdmin || member.id === user?.id) return;
+    if (!window.confirm(`Delete ${member.name}? Their workspaces and memberships will be removed.`)) return;
+
+    setUpdatingUserId(member.id);
+
+    try {
+      await usersApi.remove(member.id);
+      setUsers((current) => current.filter((item) => item.id !== member.id));
+      setAssignees((current) => current.filter((item) => item.id !== member.id));
+      showToast('success', `${member.name} was deleted.`);
+    } catch (err) {
+      handleApiError(err, 'Could not delete the user.');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handleDeleteProject = async (project) => {
+    if (!isAdmin && !isManager) return;
+    if (!window.confirm(`Delete "${project.name}"? Its tasks and invitations will be removed.`)) return;
+
+    setDeletingProjectId(project.id);
+
+    try {
+      await projectsApi.remove(project.id);
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+      setTasks((current) => current.filter((task) => task.project_id !== project.id));
+      showToast('success', `${project.name} was deleted.`);
+    } catch (err) {
+      handleApiError(err, 'Could not delete the project.');
+    } finally {
+      setDeletingProjectId(null);
+    }
+  };
+
   const handleCreateUser = async (payload) => {
     setSavingUser(true);
 
@@ -567,38 +604,42 @@ export default function Dashboard({ onLogout }) {
     setActiveView(returnView || 'dashboard');
   };
 
+  const syncUserAcrossState = (updatedUser) => {
+    setUser((current) => ({ ...current, ...updatedUser }));
+    setUsers((current) =>
+      current.map((member) => (member.id === updatedUser.id ? { ...member, ...updatedUser } : member)),
+    );
+    setAssignees((current) =>
+      current.map((member) => (member.id === updatedUser.id ? { ...member, ...updatedUser } : member)),
+    );
+    setProjects((current) =>
+      current.map((project) =>
+        project.workspace?.user?.id === updatedUser.id
+          ? {
+              ...project,
+              workspace: {
+                ...project.workspace,
+                user: { ...project.workspace.user, name: updatedUser.name },
+              },
+            }
+          : project,
+      ),
+    );
+    setTasks((current) =>
+      current.map((task) =>
+        task.assignee?.id === updatedUser.id
+          ? { ...task, assignee: { ...task.assignee, name: updatedUser.name } }
+          : task,
+      ),
+    );
+  };
+
   const handleSaveProfile = async (name) => {
     try {
       const response = await api.patch('/profile', { name });
       const updatedUser = response.data.data;
 
-      setUser((current) => ({ ...current, ...updatedUser }));
-      setUsers((current) =>
-        current.map((member) => (member.id === updatedUser.id ? { ...member, ...updatedUser } : member)),
-      );
-      setAssignees((current) =>
-        current.map((member) => (member.id === updatedUser.id ? { ...member, ...updatedUser } : member)),
-      );
-      setProjects((current) =>
-        current.map((project) =>
-          project.workspace?.user?.id === updatedUser.id
-            ? {
-                ...project,
-                workspace: {
-                  ...project.workspace,
-                  user: { ...project.workspace.user, name: updatedUser.name },
-                },
-              }
-            : project,
-        ),
-      );
-      setTasks((current) =>
-        current.map((task) =>
-          task.assignee?.id === updatedUser.id
-            ? { ...task, assignee: { ...task.assignee, name: updatedUser.name } }
-            : task,
-        ),
-      );
+      syncUserAcrossState(updatedUser);
       showToast('success', 'Profile updated successfully.');
 
       return { ok: true, user: updatedUser };
@@ -625,6 +666,65 @@ export default function Dashboard({ onLogout }) {
       return {
         ok: false,
         errors: { message: err.response?.data?.message || 'Could not update your profile. Please try again.' },
+      };
+    }
+  };
+
+  const handleUpdateEmail = async (email) => {
+    try {
+      const response = await api.patch('/profile', { name: user?.name ?? '', email });
+      const updatedUser = response.data.data;
+
+      syncUserAcrossState(updatedUser);
+      showToast('success', 'Email address updated successfully.');
+
+      return { ok: true, user: updatedUser };
+    } catch (err) {
+      if (err.response?.status === 401) {
+        forceLogout();
+        return { ok: false };
+      }
+
+      const validationErrors = err.response?.data?.errors;
+
+      return {
+        ok: false,
+        errors: validationErrors
+          ? Object.fromEntries(
+              Object.entries(validationErrors).map(([field, messages]) => [
+                field,
+                Array.isArray(messages) ? messages[0] : messages,
+              ]),
+            )
+          : { message: err.response?.data?.message || 'Could not update your email. Please try again.' },
+      };
+    }
+  };
+
+  const handleChangePassword = async ({ current_password, password, password_confirmation }) => {
+    try {
+      await api.patch('/profile/password', { current_password, password, password_confirmation });
+      showToast('success', 'Password updated successfully.');
+
+      return { ok: true };
+    } catch (err) {
+      if (err.response?.status === 401) {
+        forceLogout();
+        return { ok: false };
+      }
+
+      const validationErrors = err.response?.data?.errors;
+
+      return {
+        ok: false,
+        errors: validationErrors
+          ? Object.fromEntries(
+              Object.entries(validationErrors).map(([field, messages]) => [
+                field,
+                Array.isArray(messages) ? messages[0] : messages,
+              ]),
+            )
+          : { message: err.response?.data?.message || 'Could not update your password. Please try again.' },
       };
     }
   };
@@ -839,7 +939,9 @@ export default function Dashboard({ onLogout }) {
 
           {activeView === 'projects' && (isAdmin || isManager) && (
             <ProjectsView
+              deletingProjectId={deletingProjectId}
               loading={loading}
+              onDeleteProject={handleDeleteProject}
               onProjectCreated={(project) => {
                 setProjects((current) => [project, ...current]);
               }}
@@ -853,6 +955,7 @@ export default function Dashboard({ onLogout }) {
               currentUserId={user?.id}
               loading={loading}
               onAddUser={() => setUserModalOpen(true)}
+              onDeleteUser={handleDeleteUser}
               onRoleChange={handleRoleChange}
               updatingId={updatingUserId}
               users={users}
@@ -863,9 +966,11 @@ export default function Dashboard({ onLogout }) {
             <ProfileView
               backLabel={VIEW_LABELS[returnView] ?? 'dashboard'}
               key={user?.id ?? 'profile-loading'}
+              onChangePassword={handleChangePassword}
               onBack={closeProfileView}
               onLogout={handleLogout}
               onSave={handleSaveProfile}
+              onUpdateEmail={handleUpdateEmail}
               projectsCount={projects.length}
               role={role}
               roleInfo={roleInfo}

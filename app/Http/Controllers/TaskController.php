@@ -31,13 +31,17 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
+        // Preload the user's project memberships once so access flagging
+        // below does not run an EXISTS query per task row (N+1).
+        $memberProjectIds = $user->projects()->pluck('projects.id')->all();
+
         $tasks = Task::query()
             ->visibleTo($user)
             ->with(self::TASK_RELATIONS)
             ->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
             ->orderBy('due_date')
             ->get()
-            ->each(fn (Task $task) => $this->withAccessFlags($task, $user));
+            ->each(fn (Task $task) => $this->withAccessFlags($task, $user, $memberProjectIds));
 
         return response()->json(['data' => $tasks]);
     }
@@ -159,10 +163,13 @@ class TaskController extends Controller
         );
     }
 
-    private function withAccessFlags(Task $task, User $user): Task
+    private function withAccessFlags(Task $task, User $user, ?array $memberProjectIds = null): Task
     {
-        $task->setAttribute('can_manage', $user->canManageTask($task));
-        $task->setAttribute('can_update_status', $user->canUpdateTaskStatus($task));
+        $canManage = $user->canManageTask($task, $memberProjectIds);
+
+        $task->setAttribute('can_manage', $canManage);
+        // Derived from the same check to avoid a second membership query per row.
+        $task->setAttribute('can_update_status', $task->assigned_to === $user->id || $canManage);
 
         return $task;
     }

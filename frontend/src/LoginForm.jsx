@@ -3,7 +3,7 @@ import api from './api';
 import Icon from './components/Icons';
 
 export default function LoginForm({ onLoginSuccess, onSwitchToRegister }) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => new URLSearchParams(window.location.search).get('email') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

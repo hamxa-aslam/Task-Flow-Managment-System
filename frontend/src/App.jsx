@@ -7,7 +7,11 @@ export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'));
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'register') return 'register';
+
+    if (window.location.pathname.endsWith('/register') || params.get('mode') === 'register') {
+      return 'register';
+    }
+
     return 'login';
   });
 

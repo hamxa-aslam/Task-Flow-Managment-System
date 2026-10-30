@@ -66,7 +66,7 @@ class User extends Authenticatable
         return $this->role === 'manager';
     }
 
-    public function canManageProject(?Project $project): bool
+    public function canManageProject(?Project $project, ?array $memberProjectIds = null): bool
     {
         if (! $project) {
             return false;
@@ -80,12 +80,16 @@ class User extends Authenticatable
             return true;
         }
 
-        return $project->hasMember($this);
+        // When the caller preloaded membership IDs (e.g. list endpoints),
+        // use them to avoid an EXISTS query per project/task row.
+        return $memberProjectIds !== null
+            ? in_array($project->id, $memberProjectIds, true)
+            : $project->hasMember($this);
     }
 
-    public function canManageTask(Task $task): bool
+    public function canManageTask(Task $task, ?array $memberProjectIds = null): bool
     {
-        return $this->canManageProject($task->project);
+        return $this->canManageProject($task->project, $memberProjectIds);
     }
 
     public function canUpdateTaskStatus(Task $task): bool

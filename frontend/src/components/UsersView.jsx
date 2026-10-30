@@ -46,7 +46,15 @@ function UserSkeleton() {
   ));
 }
 
-export default function UsersView({ users, loading, currentUserId, onAddUser, onRoleChange, updatingId }) {
+export default function UsersView({
+  users,
+  loading,
+  currentUserId,
+  onAddUser,
+  onDeleteUser,
+  onRoleChange,
+  updatingId,
+}) {
   const counts = Object.keys(ROLE_META).reduce((totals, role) => {
     totals[role] = users.filter((user) => user.role === role).length;
     return totals;
@@ -209,8 +217,28 @@ export default function UsersView({ users, loading, currentUserId, onAddUser, on
                           {member.workspaces_count ?? 0}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-right text-[11px] font-medium text-slate-500 sm:px-6">
-                        {formatJoined(member.created_at)}
+                      <td className="px-5 py-4 text-right sm:px-6">
+                        <div className="flex items-center justify-end gap-3">
+                          <span className="text-[11px] font-medium text-slate-500">
+                            {formatJoined(member.created_at)}
+                          </span>
+                          {onDeleteUser && (
+                            <button
+                              aria-label={`Delete ${member.name}`}
+                              className={`grid h-7 w-7 place-items-center rounded-md transition-all duration-200 active:scale-90 ${
+                                isSelf
+                                  ? 'cursor-not-allowed text-slate-300'
+                                  : 'text-slate-400 hover:bg-rose-50 hover:text-rose-600'
+                              }`}
+                              disabled={isSelf || isUpdating}
+                              onClick={() => onDeleteUser(member)}
+                              title={isSelf ? 'You cannot delete your own account' : `Delete ${member.name}`}
+                              type="button"
+                            >
+                              <Icon name="trash" className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
